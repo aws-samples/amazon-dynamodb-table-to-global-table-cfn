@@ -1,0 +1,63 @@
+## USAGE: ORDER (8)
+## Purpose:
+## This template is used to disable deletion protection for the replica so it can be deleted in the next step
+
+
+AWSTemplateFormatVersion: "2010-09-09"
+Parameters:
+  DBTableName: 
+    Type: String
+    Default: cfnTestPrices
+    Description: Should be the table name to test
+Resources:
+  cfnTestPrices:
+    Type: AWS::DynamoDB::GlobalTable
+    Properties:
+      TableName: !Ref DBTableName
+      BillingMode: "PROVISIONED"
+      AttributeDefinitions:
+      - AttributeName: priceId
+        AttributeType: S
+      - AttributeName: date
+        AttributeType: S
+      KeySchema:
+      - AttributeName: priceId
+        KeyType: HASH
+      - AttributeName: date
+        KeyType: RANGE
+      StreamSpecification:
+            StreamViewType: "KEYS_ONLY"
+      WriteProvisionedThroughputSettings:
+        WriteCapacityAutoScalingSettings:
+          MaxCapacity: 22
+          MinCapacity: 12
+          TargetTrackingScalingPolicyConfiguration: 
+            TargetValue: 72.0
+            ScaleInCooldown: 62
+            ScaleOutCooldown: 62
+            DisableScaleIn: false
+      Replicas:
+       - 
+        Region: us-east-1
+        DeletionProtectionEnabled: true
+        ReadProvisionedThroughputSettings:
+          ReadCapacityAutoScalingSettings:
+            MaxCapacity: 22
+            MinCapacity: 12 
+            TargetTrackingScalingPolicyConfiguration:
+              ScaleInCooldown: 52
+              ScaleOutCooldown: 52
+              TargetValue: 72.0
+              DisableScaleIn: false
+       - 
+        Region: us-east-2
+        DeletionProtectionEnabled: false
+        ReadProvisionedThroughputSettings:
+          ReadCapacityAutoScalingSettings:
+            MaxCapacity: 23
+            MinCapacity: 13
+            TargetTrackingScalingPolicyConfiguration:
+              ScaleInCooldown: 53
+              ScaleOutCooldown: 53
+              TargetValue: 73.0
+              DisableScaleIn: false

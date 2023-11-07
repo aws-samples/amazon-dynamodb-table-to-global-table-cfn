@@ -1,0 +1,99 @@
+## USAGE: ORDER (1)
+## Purpose:
+## This CloudFormation creates an initial dynamodb table that has autoscaling 
+## enabled for their writes and reads. Notice it is using provisioned capacity 
+## It also creates write scaling targets and policies to allow for write and 
+## read auto scaling which likely exist in your current existing dynamodb table
+## Stream Specification is also set to enable successful replica creation later.
+
+
+AWSTemplateFormatVersion: "2010-09-09"
+Parameters:
+  DBTableName: 
+    Type: String
+    Default: cfnTestPrices
+    Description: Should be the table name to test
+Resources:
+  cfnTestPrices:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref DBTableName
+      AttributeDefinitions:
+      - AttributeName: priceId
+        AttributeType: S
+      - AttributeName: date
+        AttributeType: S
+      KeySchema:
+      - AttributeName: priceId
+        KeyType: HASH
+      - AttributeName: date
+        KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: 10
+        WriteCapacityUnits: 10
+      StreamSpecification:
+        StreamViewType: "KEYS_ONLY"
+
+  TableWriteCapacityScalableTarget:
+      Type: AWS::ApplicationAutoScaling::ScalableTarget
+      Properties:
+          MaxCapacity: 20
+          MinCapacity: 10
+          ResourceId: !Join
+                    - ''
+                    - - 'table/'
+                      - !Ref DBTableName 
+          RoleARN: !Join 
+                    - ''
+                    - - 'arn:aws:iam::'
+                      - !Ref AWS::AccountId
+                      - ':role/aws-service-role/dynamodb.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_DynamoDBTable'
+          ScalableDimension: dynamodb:table:WriteCapacityUnits
+          ServiceNamespace: dynamodb
+      DependsOn: cfnTestPrices
+
+  TableWriteScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+        PolicyName: TableWriteScalingPolicy
+        PolicyType: TargetTrackingScaling
+        ScalingTargetId: !Ref TableWriteCapacityScalableTarget
+        TargetTrackingScalingPolicyConfiguration:
+            TargetValue: 70.0
+            ScaleInCooldown: 61
+            ScaleOutCooldown: 61
+            PredefinedMetricSpecification:
+                PredefinedMetricType: DynamoDBWriteCapacityUtilization
+    DependsOn: cfnTestPrices
+
+  TableReadCapacityScalableTarget:
+      Type: AWS::ApplicationAutoScaling::ScalableTarget
+      Properties:
+          MaxCapacity: 20
+          MinCapacity: 10
+          ResourceId: !Join
+                    - ''
+                    - - 'table/'
+                      - !Ref DBTableName
+          RoleARN: !Join 
+                    - ''
+                    - - 'arn:aws:iam::'
+                      - !Ref AWS::AccountId
+                      - ':role/aws-service-role/dynamodb.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_DynamoDBTable'
+          ScalableDimension: dynamodb:table:ReadCapacityUnits
+          ServiceNamespace: dynamodb
+      DependsOn: cfnTestPrices
+
+  TableReadScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+        PolicyName: TableReadScalingPolicy
+        PolicyType: TargetTrackingScaling
+        ScalingTargetId: !Ref TableReadCapacityScalableTarget
+        TargetTrackingScalingPolicyConfiguration:
+            TargetValue: 70.0
+            ScaleInCooldown: 50
+            ScaleOutCooldown: 50
+            PredefinedMetricSpecification:
+                PredefinedMetricType: DynamoDBReadCapacityUtilization
+    DependsOn: cfnTestPrices
