@@ -1,0 +1,18 @@
+## USAGE: ORDER (3)
+## Purpose:
+## This CloudFormation is removing the dynamodb table / scaling target / and scaling policy so we can import this as a global table in step 5
+## NOTE: This step will delete your scaling policies temporarily so autoscaling will be disabled until step 5
+## Changes:
+## - UNMANAGE dynamodb:Table
+## - UNMANAGE scaling Target
+## - UNMANAGE Scaling Policy
+
+AWSTemplateFormatVersion: "2010-09-09"
+Parameters:
+  DBTableName: 
+    Type: String
+    Default: CfnTestPrices
+    Description: Should be the table name to test
+Resources:
+  MyEmptyResource:
+    Type: AWS::CloudFormation::WaitConditionHandle

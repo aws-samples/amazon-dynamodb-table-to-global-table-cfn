@@ -1,0 +1,68 @@
+## USAGE: ORDER (4)
+## Purpose:
+## This CloudFormation imports the table back as a global table resource
+## We add write and read scaling configurations as well - however these are not active yet
+## Changes:
+## IMPORT DynamoDB table as a global table
+## WITH write and read scaling properties to the global table object
+## DeletionProtection moved to replicas section
+## Adding Variables for Primary and Replica Region
+
+
+AWSTemplateFormatVersion: "2010-09-09"
+Parameters:
+  DBTableName: 
+    Type: String
+    Default: CfnTestPrices
+    Description: Should be the table name to test
+  PrimaryRegion: 
+    Type: String
+    Default: us-east-1
+    Description: Region Primary Table is located
+  ReplicaRegion: 
+    Type: String
+    Default: us-east-2
+    Description: Region replica is located
+Resources:
+  MyEmptyResource:
+    Type: AWS::CloudFormation::WaitConditionHandle
+  CfnTestPrices:
+    Type: AWS::DynamoDB::GlobalTable
+    DeletionPolicy: Retain
+    Properties:
+      TableName: !Ref DBTableName
+      BillingMode: "PROVISIONED"
+      AttributeDefinitions:
+      - AttributeName: priceId
+        AttributeType: S
+      - AttributeName: date
+        AttributeType: S
+      KeySchema:
+      - AttributeName: priceId
+        KeyType: HASH
+      - AttributeName: date
+        KeyType: RANGE
+      StreamSpecification:
+            StreamViewType: "KEYS_ONLY"
+      WriteProvisionedThroughputSettings:
+        WriteCapacityAutoScalingSettings:
+          MaxCapacity: 20 
+          MinCapacity: 10
+          TargetTrackingScalingPolicyConfiguration: 
+            TargetValue: 70.0
+            ScaleInCooldown: 61
+            ScaleOutCooldown: 61
+            DisableScaleIn: false
+      Replicas:
+       - 
+        Region: !Ref PrimaryRegion
+        DeletionProtectionEnabled: true
+        ReadProvisionedThroughputSettings:
+          ReadCapacityAutoScalingSettings:
+            MaxCapacity: 20
+            MinCapacity: 10 
+            TargetTrackingScalingPolicyConfiguration:
+              ScaleInCooldown: 50
+              ScaleOutCooldown: 50
+              TargetValue: 70.0
+              DisableScaleIn: false
