@@ -1,6 +1,13 @@
 # DynamoDB Converting Table to Global Table with CloudFormation
 
 ## About This Repo
+Many customers have security policies in their organization to only make changes via infrastructure as code to ensure users only have controlled access to production environments. In an effort to provide additional resiliency to their applications, they are looking to embrace the use of DynamoDB Global Tables. In the console, it is relatively easy to convert a dynamodb table to a global table. It only requires the creation of a replica. However, when making these changes strictly with cloudformation, this process is more difficult to do without impacting your auto scaling, running into errors, or at worst losing your entire database. The steps in this document are to ensure that you can safely make this transition without impacting your production database from a scaling, availability, or data standpoint.
+
+WARNING!
+Use these steps with caution. If you do not follow these steps properly you may delete your dynamoDB Table.
+Use these steps (or script) as a guidline to build your own process and test on non-production systems before executing on production workloads.
+
+Additional documentation on this process and limitations can be found here: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-globaltable.html
 
 This repo contains steps to update a dynamodb table stored in CloudFormation to a global table (version 2019.11.21) without recreating the table.
 
@@ -10,13 +17,9 @@ This example is also using the AWS provided autoscaling role: aws-service-role/d
 
 This repository contains a series of CloudFormation templates that walk you through the steps that can update your CloudFormation in series to retain the table and convert it to a global table. 
 
-DISCLAIMER: This is for illustrative purposes, NEVER follow these instructions directly on any production system. Use this as a guide with a proof of concept or unimportant table to help create a runbook for your dynamoDB upgrade and test it first in non-important systems validating the cloudformation executions along the way.
-
 These steps assume you have the permissions to run these commands. 
 Comments within the CloudFormation files themselves explain the changes that are implimented from file to file.
 Reading these comments will help you fully understand the scope of changes.
-
-Additional documentation on this process and limitations can be found here: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-globaltable.html
 
 ## Steps to Upgrade Table
 
@@ -62,9 +65,9 @@ aws cloudformation deploy \
   --parameter-overrides DBTableName=cfnTestPrices
 ```
 
-### STEP 2: Add in deletion policy 
+### STEP 2: Add Deletion Policy 
 
-This step we are adding a DeletionPolicy to retain to ensure that no resources are deleted when we remove them from the cloudformation template. In order to for this to take effect with the TableReadCapacityScalableTarget and TableWriteCapictyScaleTarget, we are modifying the maxCapacity from 20 to 19. This is becasue if we don't make this change, cloudformation will not attribute deletionPolicy: retain as an change to the infrastructure and thus not change the resource. Additionally, we are adding DeletionProtectionEnabled: true to the dynamodb table resource itself. [This property was released in March of 2023](https://aws.amazon.com/about-aws/whats-new/2023/03/amazon-dynamodb-table-deletion-protection/) and ensures that the table can not be deleted without the proper IAM permissions. Notice we are putting this under the dynamodb table resource. This attribute will be moved to the replica specification in step 4. We also add disableScaleIn: False explictly in the tableReadScalingPolicy and tableWriteScaling policy. This ensures that those policies can be retained and adopted by our new global table resource. All of the properties listed under tableReadScalingPolicy and tableWriteScalingPolicy are required for the cloudformation to execute properly.
+In this step we are setting a DeletionPolicy to retain. This ensures that no resources are deleted when we remove them from the cloudformation template. In order to for this to take effect with the TableReadCapacityScalableTarget and TableWriteCapictyScaleTarget, we are modifying the maxCapacity from 20 to 19. This is becasue if we don't make this change, cloudformation will not attribute deletionPolicy: retain as an change to the infrastructure and thus not change the resource. Additionally, we are adding DeletionProtectionEnabled: true to the dynamodb table resource itself. [This property was released in March of 2023](https://aws.amazon.com/about-aws/whats-new/2023/03/amazon-dynamodb-table-deletion-protection/) and ensures that the table can not be deleted without the proper IAM permissions. Notice we are putting this under the dynamodb table resource. This attribute will be moved to the replica specification in step 4. We also add disableScaleIn: False explictly in the tableReadScalingPolicy and tableWriteScaling policy. This ensures that those policies can be retained and adopted by our new global table resource. All of the properties listed under tableReadScalingPolicy and tableWriteScalingPolicy are required for the cloudformation to execute properly.
 
 We will create a CloudFormation change set. This will allow us to review our infrastructure changes before executing them. 
 
