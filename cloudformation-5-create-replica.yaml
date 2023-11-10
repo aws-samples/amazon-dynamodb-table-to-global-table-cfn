@@ -10,10 +10,10 @@ AWSTemplateFormatVersion: "2010-09-09"
 Parameters:
   DBTableName: 
     Type: String
-    Default: cfnTestPrices
+    Default: CfnTestPrices
     Description: Should be the table name to test
 Resources:
-  cfnTestPrices:
+  CfnTestPrices:
     Type: AWS::DynamoDB::GlobalTable
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
