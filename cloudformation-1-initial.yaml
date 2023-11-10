@@ -11,10 +11,10 @@ AWSTemplateFormatVersion: "2010-09-09"
 Parameters:
   DBTableName: 
     Type: String
-    Default: cfnTestPrices
+    Default: CfnTestPrices
     Description: Should be the table name to test
 Resources:
-  cfnTestPrices:
+  CfnTestPrices:
     Type: AWS::DynamoDB::Table
     Properties:
       TableName: !Ref DBTableName
@@ -50,7 +50,7 @@ Resources:
                       - ':role/aws-service-role/dynamodb.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_DynamoDBTable'
           ScalableDimension: dynamodb:table:WriteCapacityUnits
           ServiceNamespace: dynamodb
-      DependsOn: cfnTestPrices
+      DependsOn: CfnTestPrices
 
   TableWriteScalingPolicy:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
@@ -64,7 +64,7 @@ Resources:
             ScaleOutCooldown: 61
             PredefinedMetricSpecification:
                 PredefinedMetricType: DynamoDBWriteCapacityUtilization
-    DependsOn: cfnTestPrices
+    DependsOn: CfnTestPrices
 
   TableReadCapacityScalableTarget:
       Type: AWS::ApplicationAutoScaling::ScalableTarget
@@ -82,7 +82,7 @@ Resources:
                       - ':role/aws-service-role/dynamodb.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_DynamoDBTable'
           ScalableDimension: dynamodb:table:ReadCapacityUnits
           ServiceNamespace: dynamodb
-      DependsOn: cfnTestPrices
+      DependsOn: CfnTestPrices
 
   TableReadScalingPolicy:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
@@ -96,4 +96,4 @@ Resources:
             ScaleOutCooldown: 50
             PredefinedMetricSpecification:
                 PredefinedMetricType: DynamoDBReadCapacityUtilization
-    DependsOn: cfnTestPrices
+    DependsOn: CfnTestPrices
