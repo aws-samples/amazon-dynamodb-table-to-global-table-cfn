@@ -6,7 +6,7 @@
 ## Example ./cfn-execution 1
 
 ### OPTIONS
-TABLE_NAME='cfnTestPrices'
+TABLE_NAME='CfnTestPrices'
 STACK_NAME='cfn-demo-dynamodb'
 DEFAULT_STEP=1
 
@@ -143,7 +143,7 @@ if [ $EXE_STEP == 4 ];then
     --region us-east-1 \
     --parameters ParameterKey=DBTableName,ParameterValue=$TABLE_NAME \
     --resources-to-import "[ \
-      {\"ResourceType\":\"AWS::DynamoDB::GlobalTable\",\"LogicalResourceId\":\"cfnTestPrices\", \"ResourceIdentifier\":{\"TableName\":\"$TABLE_NAME\"}}
+      {\"ResourceType\":\"AWS::DynamoDB::GlobalTable\",\"LogicalResourceId\":\"CfnTestPrices\", \"ResourceIdentifier\":{\"TableName\":\"$TABLE_NAME\"}}
       ]" \
     --template-body "file://$SCRIPT_DIR/cloudformation-4-import-table.yaml" --capabilities CAPABILITY_NAMED_IAM \
     --query 'Id' \
