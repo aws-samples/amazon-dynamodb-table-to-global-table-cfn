@@ -11,8 +11,8 @@ AWSTemplateFormatVersion: "2010-09-09"
 Parameters:
   DBTableName: 
     Type: String
-    Default: cfnTestPrices
-    Description: Should be the table name to tes
+    Default: CfnTestPrices
+    Description: Should be the table name to test
 Resources:
   MyEmptyResource:
     Type: AWS::CloudFormation::WaitConditionHandle
