@@ -7,7 +7,6 @@
 ## - ADD MyEmptyResource in preperation for the unmanage step
 ## - ADD DeletionProtectionEnabled: true to Properties
 ## - ADD DisableScaleIn: false to tableReadScalingPolicy and tableWriteScalingPolicy
-## - MODIFIED maxCapacity in  TableWriteCapacityScalableTarget and TableReadCapacityScalableTarget from 20 -> 19 to ensure DeletionPolicy is updated
 
 
 AWSTemplateFormatVersion: "2010-09-09"
@@ -43,7 +42,7 @@ Resources:
       Type: AWS::ApplicationAutoScaling::ScalableTarget
       DeletionPolicy: Retain
       Properties:
-          MaxCapacity: 19 
+          MaxCapacity: 20 
           MinCapacity: 10 
           ResourceId: !Join
                     - ''
@@ -78,7 +77,7 @@ Resources:
       Type: AWS::ApplicationAutoScaling::ScalableTarget
       DeletionPolicy: Retain
       Properties:
-          MaxCapacity: 19
+          MaxCapacity: 20
           MinCapacity: 10
           ResourceId: !Join
                     - ''

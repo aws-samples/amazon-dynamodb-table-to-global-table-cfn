@@ -91,10 +91,6 @@ In the following steps, you were asked to check the details of this stack and al
 
 In this step, set `DeletionPolicy: Retain` for `AWS::DynamoDB::Table`, `AWS::ApplicationAutoScaling::ScalableTarget`, and `AWS::ApplicationAutoScaling::ScalingPolicy` resources. 
 This ensures that no resources are deleted when you remove them from the CloudFormation template. 
-To enforce CloudFormation recognize this change on the stack,
-update the value of `maxCapacity` from 20 to 19 for `TableReadCapacityScalableTarget` and `TableWriteCapacityScaleTarget` resources in the CloudFormation template.
-
-Sometimes CloudFormation doesn't recognized updating `deletionPolicy` as a change on the template and consequently doesn't update the deletion policy on the deployed AWS resources.
 
 Add `DeletionProtectionEnabled: true` to the DynamoDB table resource in the CloudFormation template.
 [This property was released in March of 2023](https://aws.amazon.com/about-aws/whats-new/2023/03/amazon-dynamodb-table-deletion-protection/) and ensures that the table can not be deleted without the proper IAM permissions. 

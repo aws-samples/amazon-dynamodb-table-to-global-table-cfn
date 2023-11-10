@@ -7,7 +7,7 @@
 
 ### OPTIONS
 TABLE_NAME='cfnTestPrices'
-STACK_NAME="cfn-demo-dynamodb"
+STACK_NAME='cfn-demo-dynamodb'
 DEFAULT_STEP=1
 
 

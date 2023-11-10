@@ -37,7 +37,7 @@ Resources:
             StreamViewType: "KEYS_ONLY"
       WriteProvisionedThroughputSettings:
         WriteCapacityAutoScalingSettings:
-          MaxCapacity: 19 
+          MaxCapacity: 20 
           MinCapacity: 10
           TargetTrackingScalingPolicyConfiguration: 
             TargetValue: 70.0
@@ -50,7 +50,7 @@ Resources:
         DeletionProtectionEnabled: true
         ReadProvisionedThroughputSettings:
           ReadCapacityAutoScalingSettings:
-            MaxCapacity: 19
+            MaxCapacity: 20
             MinCapacity: 10 
             TargetTrackingScalingPolicyConfiguration:
               ScaleInCooldown: 50
