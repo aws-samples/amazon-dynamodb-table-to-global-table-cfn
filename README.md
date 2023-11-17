@@ -1,49 +1,34 @@
-# How to change a DynamoDB Table to Global Table with AWS CloudFormation
+# Converting a CloudFormation-managed Amazon DynamoDB table to a global table
+DynamoDB global tables is a feature that provides fully-managed, multi-active, multi-Region replication, making it easier to build highly available applications. A Regional DynamoDB table is converted to a global table by adding one or more replicas. 
 
-It is common to have policies in place to only allow changes via infrastructure as code (IaC)
-to ensure changes made in production environments are controlled.
-To provide additional resiliency to your applications, 
-you can use Amazon DynamoDB global tables that is a fully managed, serverless, multi-active, and multi-Region database.
+If you use CloudFormation to manage your DynamoDB tables, you cannot simply edit an existing Regional table that uses the **AWS::DynamoDB::Table** resource to a **AWS::DynamoDB::GlobalTable** resource, as CloudFormation will process these as two different resources, resulting in deletion of the **AWS::DynamoDB::Table** resource and creation of a new (empty) **AWS::DynamoDB::GlobalTable** resource. 
 
-### Using AWS console
-To change a DynamoDB table to a global table via AWS console, you follow these steps:
-- Open AWS console and find your DynamoDB table: [https://console.aws.amazon.com/dynamodb](https://console.aws.amazon.com/dynamodb)
-- Go to **Global tables** tab, and add a replica in another AWS Region
+This guide contains the steps necessary to safely convert your Regional DynamoDB table to a global table when using CloudFormation to manage your DynamoDB resources.
 
-If your table has provisioned capacity mode, auto-scaling for write must be enabled on your table and its GSIs (if there are any).
-If DynamoDB streams is not enabled for your table, it will automatically be enabled when you create a replica for your table via AWS console.
+:warning: **WARNING! We have made every effort to test this process exhaustively, but use this guide at your own risk. If each step is not followed exactly, you may delete your DynamoDB Table.** :warning:
 
-### Using AWS CloudFormation
+## Prerequisites
+If your Regional table is configured to use provisioned capacity mode, auto-scaling for write capacity must be enabled for your table and any GSIs before it can be converted to a global table. 
 
-If your infrastructure is managed via AWS CloudFormation,
-to change a DynamoDB table (`AWS::DynamoDB::Table`) to a global table (`AWS::DynamoDB::GlobalTable`) using only CloudFormation,
-you **must** follow the instruction explained below.
-This way, you protect your table from accidental deletion, as well as, 
-possible negative impact on the performance of your table because of changing your table to a global table.
-
-**WARNING! Use these steps with caution. If you do not follow these steps properly, you may delete your DynamoDB Table.**
+## Changes created by conversion to global table
+* If DynamoDB streams is not enabled for your table, it will automatically be enabled as part of the conversion to global table.
+* The resulting global table resource (`AWS::DynamoDB::GlobalTable`) will be version 2019.11.21.
 
 ## About this repository
+This repository details the steps required to change the CloudFormation resource type of a DynamoDB table (with provisioned capacity mode and auto-scaling enabled) from **`AWS::DynamoDB::Table`** to **`AWS::DynamoDB::GlobalTable`**. It does so by executing the process on a test table you create, so you can understand the steps required while minimizing risk. The instructions, scripts and templates provided here are intended as guides for you to create your own procedure for your tables.
 
-This repository walks you through the required steps to change the resource type of DynamoDB table (with provisioned capacity mode and auto-scaling enabled) in CloudFormation template
-from `AWS::DynamoDB::Table` to `AWS::DynamoDB::GlobalTable`.
-The **global table (`AWS::DynamoDB::GlobalTable`) has version 2019.11.21**.
-
-This example uses the AWS provided auto-scaling role: `aws-service-role/dynamodb.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_DynamoDBTable`.
-If you have your own role, you can retain and use that role as well.
+This example uses the AWS-provided auto-scaling role: **`aws-service-role/dynamodb.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_DynamoDBTable`.**
+You can choose to use another role you've defined, but it must have sufficient permissions to execute all tasks.
 
 When running the steps explained below, check that you have sufficient permissions to run the commands in your own AWS account.
 
 You can find more information about each step (in the form of comments) in the CloudFormation templates in this repository.
-It is important to read the comments carefully to understand the changes happening in each step,
-so that you make similar changes when running these steps on your own table(s).
+It is important to read the comments carefully to understand the changes happening in each step, so you understand each change and its effects changes when performing the process on existing tables.
 
 ## Before you begin
+:warning: **Executing this procedure incorrectly can result in table deletion.** :warning:
 
-**To make this change safely on your DynamoDB table, it is immensely important to complete each step successfully before performing the next step.**
-**Use the instructions below and the scripts in this repository as a guideline to build your own process.
-Before making any changes on your table in your production environment, 
-test the following instruction and scripts on a test table with the same configuration as your production table in your test environment.**
+**It is critical to complete each step successfully before performing the next step.**
 
 See, [additional information related to changing a DynamoDB table to global table](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-globaltable.html).
 
