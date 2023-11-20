@@ -1,18 +1,11 @@
 # Converting a CloudFormation-managed Amazon DynamoDB table to a global table
 DynamoDB global tables is a feature that provides fully-managed, multi-active, multi-Region replication, making it easier to build highly available applications. A Regional DynamoDB table is converted to a global table by adding one or more replicas. 
 
-If you use CloudFormation to manage your DynamoDB tables, you cannot simply edit an existing Regional table that uses the **AWS::DynamoDB::Table** resource to a **AWS::DynamoDB::GlobalTable** resource, as CloudFormation will process these as two different resources, resulting in deletion of the **AWS::DynamoDB::Table** resource and creation of a new (empty) **AWS::DynamoDB::GlobalTable** resource. 
+If you use CloudFormation to manage your DynamoDB tables, you cannot simply edit an existing Regional table that uses the **AWS::DynamoDB::Table** resource to a **AWS::DynamoDB::GlobalTable** resource, as CloudFormation will process these as two different resources, resulting in deletion of the **AWS::DynamoDB::Table** resource and creation of a new (empty) **AWS::DynamoDB::GlobalTable** resource. See the [AWS:DynamoDB:GlobalTable documentation](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-globaltable.html) for more information.
 
 This guide contains the steps necessary to safely convert your Regional DynamoDB table to a global table when using CloudFormation to manage your DynamoDB resources.
-
+ 
 :warning: **WARNING! We have made every effort to test this process exhaustively, but use this guide at your own risk. If each step is not followed exactly, you may delete your DynamoDB Table.** :warning:
-
-## Prerequisites
-If your Regional table is configured to use provisioned capacity mode, auto-scaling for write capacity must be enabled for your table and any GSIs before it can be converted to a global table. 
-
-## Changes created by conversion to global table
-* If DynamoDB streams is not enabled for your table, it will automatically be enabled as part of the conversion to global table.
-* The resulting global table resource (`AWS::DynamoDB::GlobalTable`) will be version 2019.11.21.
 
 ## About this repository
 This repository details the steps required to change the CloudFormation resource type of a DynamoDB table (with provisioned capacity mode and auto-scaling enabled) from **`AWS::DynamoDB::Table`** to **`AWS::DynamoDB::GlobalTable`**. It does so by executing the process on a test table you create, so you can understand the steps required while minimizing risk. The instructions, scripts and templates provided here are intended as guides for you to create your own procedure for your tables.
@@ -20,26 +13,30 @@ This repository details the steps required to change the CloudFormation resource
 This example uses the AWS-provided auto-scaling role: **`aws-service-role/dynamodb.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_DynamoDBTable`.**
 You can choose to use another role you've defined, but it must have sufficient permissions to execute all tasks.
 
-When running the steps explained below, check that you have sufficient permissions to run the commands in your own AWS account.
-
 You can find more information about each step (in the form of comments) in the CloudFormation templates in this repository.
 It is important to read the comments carefully to understand the changes happening in each step, so you understand each change and its effects changes when performing the process on existing tables.
 
-## Before you begin
+## Prerequisites
+* If your Regional table is configured to use provisioned capacity mode, auto-scaling for write capacity must be enabled for your table and any GSIs before it can be converted to a global table. 
+
+* You must have sufficient permissions to run these commands in your own AWS account in order to complete the process.
+
+## Resulting changes
+* If DynamoDB streams is not enabled for your table, it will automatically be enabled as part of the conversion to global table.
+* The resulting global table resource (`AWS::DynamoDB::GlobalTable`) will be version 2019.11.21.
+
+## Read First!
 :warning: **Executing this procedure incorrectly can result in table deletion.** :warning:
 
-**It is critical to complete each step successfully before performing the next step.**
+**It is critical to complete each step successfully before performing the next step. Failure to wait for a step to complete may result in unpredictable outcomes.**
 
-See, [additional information related to changing a DynamoDB table to global table](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-globaltable.html).
-
-## Step-by-step instruction
+## Conversion Procedure
 
 ### STEP 1: Create an initial DynamoDB table
 
-Review the AWS resources in [cloudformation-1-initial.yaml](./cloudformation-1-initial.yaml) file.
+Review the AWS resources in the file [cloudformation-1-initial.yaml](./cloudformation-1-initial.yaml).
 
-In a terminal using an AWS profile with sufficient permissions in your AWS account, 
-run the following command to deploy the example stack called `cfn-demo-dynamodb`.
+Using an AWS profile with sufficient permissions, run the following CLI command to deploy the example stack named `cfn-demo-dynamodb`.
 
 ```
 aws cloudformation deploy \
@@ -50,32 +47,31 @@ aws cloudformation deploy \
   --parameter-overrides DBTableName=CfnTestPrices
 ```
 
-This step creates a DynamoDB table named `CfnTestPrices` with a partition key, `price`, and sort key, `date`.
-Notice that `StreamSpecification` is set to `StreamViewType: KEYS_ONLY` for table.
-If DynamoDB streams is not enabled for the table, you get an error message when creating a replica in subsequent steps.
+This creates a DynamoDB table named `CfnTestPrices` with the partition key of `price` and a sort key of`date`.
+Notice that `StreamSpecification` is set to `StreamViewType: KEYS_ONLY` for the table.
+If DynamoDB streams is not enabled for the table, you will receive an error message when creating a replica in later steps.
 
-After the stack is deployed, open the AWS console for CloudFormation: [https://console.aws.amazon.com/cloudformation](https://console.aws.amazon.com/cloudformation), and find the stack called `cfn-demo-dynamodb`.
+After the stack is deployed, open the AWS console for CloudFormation at [https://console.aws.amazon.com/cloudformation](https://console.aws.amazon.com/cloudformation), and find the stack called `cfn-demo-dynamodb`.
 
-Check that you are in the same AWS Region, **us-east-1**, as the stack was deployed.
-Clicking on the name of the stack `cfn-demo-dynamodb`, shows details of deployed AWS resources in this stack.
-Later, in the following steps, you are asked to review the details of this stack as well as view the change sets.
+Check that you are in the same AWS Region, **us-east-1**, as the stack you deployed.
+Clicking on the name of the stack `cfn-demo-dynamodb`, shows the details of deployed AWS resources in this stack.
+You will be asked later to review the details of this stack as well as created change sets.
 
-### STEP 2: Required preparation
+### STEP 2: Prepare the table for safe conversion
+#### Update the CloudFormation template
 
-Review all the following changes **required** for this step in [cloudformation-2-deletionPolicy.yaml](cloudformation-2-deletionPolicy.yaml):
-1. Set `DeletionPolicy: Retain` for `AWS::DynamoDB::Table`,
+Make the following settings changes in [cloudformation-2-deletionPolicy.yaml](cloudformation-2-deletionPolicy.yaml). These changes are **required** to safely execute this step:
+1. Set `DeletionPolicy: Retain` for the `AWS::DynamoDB::Table`,
    `AWS::ApplicationAutoScaling::ScalableTarget`, and `AWS::ApplicationAutoScaling::ScalingPolicy` resources.
-This is very important to protect the resources from deletion. In a later step, you will remove these resources from the template 
-so they are no longer managed by CloudFormation. 
+This is important to protect the resources from deletion. Later, you will remove these resources from the template so they are no longer managed by CloudFormation. 
 This setting ensures that these resources will not be deleted when performing that step.
 
 2. Add `DeletionProtectionEnabled: true` to the DynamoDB table resource in the CloudFormation template.
-   [This property was released in March of 2023](https://aws.amazon.com/about-aws/whats-new/2023/03/amazon-dynamodb-table-deletion-protection/)
-   and ensures that the table can not be deleted without the proper IAM permissions.
-   `DeletionProtectionEnabled` attribute will be moved to the replica specification in step 4
-   as the resource type changes from `AWS::DynamoDB::Table` to `AWS::DynamoDB::GlobalTable`.
+   [Deletion protection was released in March of 2023](https://aws.amazon.com/about-aws/whats-new/2023/03/amazon-dynamodb-table-deletion-protection/)
+   and ensures that a table can not be deleted without the proper IAM permissions.
+   The `DeletionProtectionEnabled` attribute will be moved to the replica specification in step 4 when the resource type changes from `AWS::DynamoDB::Table` to `AWS::DynamoDB::GlobalTable`.
 
-The following example shows the changes so far to protect the table and auto-scaling resources from deletion:
+The following example shows the changes made so far to protect the table and auto-scaling resources from deletion:
 
 ```
 TableReadCapacityScalableTarget:
@@ -97,9 +93,8 @@ CfnTestPrices:
     ... 
 ```
 
-3. **It is very important to add `DisableScaleIn: False` explicitly for `AWS::ApplicationAutoScaling::ScalingPolicy` resources in the CloudFormation template** 
-to ensure that the scaling policies are **retained and adopted** by the new global table resource.
-The following example has all the properties **required** for the CloudFormation to execute properly.
+3. Set `DisableScaleIn: False` for `AWS::ApplicationAutoScaling::ScalingPolicy` resources in the CloudFormation template. This ensures the scaling policies are **retained and adopted** by the new global table resource.
+The following example has all properties **required** for the CloudFormation process to execute properly.
 See `TableReadScalingPolicy` and `TableWriteScalingPolicy` resources in [cloudformation-2-deletionPolicy.yaml](cloudformation-2-deletionPolicy.yaml) for more details.
 When running these steps on your own table, review that your `AWS::ApplicationAutoScaling::ScalingPolicy` resources have
 all of these properties.
@@ -121,22 +116,20 @@ TableWriteScalingPolicy:
   DependsOn: CfnTestPrices          
 ```
 
-4. `MyEmptyResource` is added to the `cloudformation-2-deletionPolicy.yaml` template 
-so that this template will have at least one resource
+4. Note that `MyEmptyResource` is added to the `cloudformation-2-deletionPolicy.yaml` template to ensure that this template will have at least one resource
 after the DynamoDB table and auto-scaling resources are removed from the template.
-CloudFormation deletes an empty template which in this process would result in an error. That is why this resource is added.
+CloudFormation deletes empty templates, which would result in an error while the process completes.
 
 ```
 MyEmptyResource:
   Type: AWS::CloudFormation::WaitConditionHandle
 ```
 
-#### Create CloudFormation change set
+#### Create the CloudFormation change set
 
-After adding all the required preparation explained earlier, 
-create a CloudFormation change set to review the infrastructure changes before executing them.
-See, [Viewing a change set](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-changesets-view.html).
-Run the following command in a terminal using an AWS profile with sufficient permissions in your AWS account in **us-east-1** AWS Region:
+Now that the template is properly configured, the next step is to create a CloudFormation change set to review the infrastructure changes before executing them (for more information on change sets, see [Viewing a change set](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-changesets-view.html) in the CloudFormation documentation).
+
+Using an AWS profile with sufficient permissions, run the following CLI command to create the CloudFormation Change Set:
 
 ```
 aws cloudformation create-change-set \
@@ -148,7 +141,7 @@ aws cloudformation create-change-set \
   --parameters ParameterKey=DBTableName,ParameterValue=CfnTestPrices 
 ```
 
-You get a similar output after running the command above:
+You should see a response similiar to below:
 
 ```
 {
@@ -157,30 +150,31 @@ You get a similar output after running the command above:
 }
 ```
 
-#### Change set Validation
+#### Verify the Change Set
 
-Review this change set to ensure no resources are deleted or re-created.
-You find this newly created change set in AWS console for CloudFormation.
-Find `cfn-demo-dynamodb` stack, go to Change sets table, review `create-retain` change set.
+Review the change set to ensure no resources are deleted or re-created.
+In the AWS console for CloudFormation, find the `cfn-demo-dynamodb` stack, go to the Change Sets table, and review the `create-retain` change set.
 
 ![create-retain change set](images/create-retain-changes-step2.png)
 
-If you prefer to use AWS CLI instead of AWS console, run the following command to validate that the `AWS::DynamoDB::Table`,
-`AWS::ApplicationAutoScaling::ScalableTarget`, and `AWS::ApplicationAutoScaling::ScalingPolicy` resources created in step 1, are not replaced in step 2.
+If you prefer to use the AWS CLI instead of the AWS console, using an AWS profile with sufficient permissions, run the following CLI command to verify that the `AWS::DynamoDB::Table`,`AWS::ApplicationAutoScaling::ScalableTarget`, and `AWS::ApplicationAutoScaling::ScalingPolicy` resources created in step 1 were not replaced in step 2:
 
 ```
-## Validate the changes
 aws cloudformation describe-change-set --change-set-name <"Id" from the output of 'create-change-set' command that you run earlier>
 ```
 
-To execute the change set, either use AWS console or run the following AWS CLI command:
+#### Verify the Change Set
+
+To execute the change set, use the AWS console to execture the Change Set. 
+
+If you prefer to use the AWS CLI instead of the AWS console, using an AWS profile with sufficient permissions run the following AWS CLI command to execute the Change Set:
 
 ```
-## Execute the change set
 aws cloudformation execute-change-set --change-set-name <"Id" from the output of 'create-change-set' command that you run earlier>
 ```
 
-You can follow the execution of the change set in AWS console as below:
+
+You can follow the execution of the change set in AWS console:
 
 ![create-retain executing change set](images/create-retain-execute-step2.png)
 
@@ -188,7 +182,8 @@ Wait until the execution is successfully completed:
 
 ![create-retain execute completed](images/create-retain-execute-complete-step2.png)
 
-If you use the AWS CLI, run the following command to check the status of the change set:
+
+If you prefer to use the AWS CLI, run the following command to check the status of the change set:
 
 ```
 ## Wait until the change set finishes and status is UPDATE_COMPLETE
