@@ -14,7 +14,7 @@ This example uses the AWS-provided auto-scaling role: **`aws-service-role/dynamo
 You can choose to use another role you've defined, but it must have sufficient permissions to execute all tasks.
 
 You can find more information about each step (in the form of comments) in the CloudFormation templates in this repository.
-It is important to read the comments carefully to understand the changes happening in each step, so you understand each change and its effects changes when performing the process on existing tables.
+It is important to read the comments carefully to understand the changes happening in each step, so you understand each change and its effects changes when performing the process on existing tables. In this example, us-east-1 is used as the primary region and us-east-2 will serve as the replica region.
 
 ## Prerequisites
 * If your Regional table is configured to use provisioned capacity mode, auto-scaling for write capacity must be enabled for your table and any GSIs before it can be converted to a global table. 
@@ -160,7 +160,7 @@ In the AWS console for CloudFormation, find the `cfn-demo-dynamodb` stack, go to
 If you prefer to use the AWS CLI instead of the AWS console, using an AWS profile with sufficient permissions, run the following CLI command to verify that the `AWS::DynamoDB::Table`,`AWS::ApplicationAutoScaling::ScalableTarget`, and `AWS::ApplicationAutoScaling::ScalingPolicy` resources created in step 1 were not replaced in step 2:
 
 ```
-aws cloudformation describe-change-set --change-set-name <"Id" from the output of 'create-change-set' command that you run earlier>
+aws cloudformation describe-change-set --region us-east-1 --change-set-name <"Id" from the output of 'create-change-set' command that you run earlier>
 ```
 
 #### Verify the Change Set
@@ -170,7 +170,7 @@ To execute the change set, use the AWS console to execture the Change Set.
 If you prefer to use the AWS CLI instead of the AWS console, using an AWS profile with sufficient permissions run the following AWS CLI command to execute the Change Set:
 
 ```
-aws cloudformation execute-change-set --change-set-name <"Id" from the output of 'create-change-set' command that you run earlier>
+aws cloudformation execute-change-set --region us-east-1 --change-set-name <"Id" from the output of 'create-change-set' command that you run earlier>
 ```
 
 
@@ -187,7 +187,7 @@ If you prefer to use the AWS CLI, run the following command to check the status 
 
 ```
 ## Wait until the change set finishes and status is UPDATE_COMPLETE
-aws cloudformation describe-stack-events --stack-name cfn-demo-dynamodb --max-items 1
+aws cloudformation describe-stack-events --region us-east-1 --stack-name cfn-demo-dynamodb --max-items 1
 ```
 
 You get a similar output as below. Don't proceed to the next step until you see `"ResourceStatus": "UPDATE_COMPLETE"`.
@@ -212,9 +212,9 @@ Review the table and auto-scaling resources to ensure the required preparations 
 
 ```
 ## Validate resources and creation time
-aws dynamodb describe-table --table-name CfnTestPrices
-aws application-autoscaling describe-scalable-targets --service-namespace dynamodb --resource-id "table/CfnTestPrices"
-aws application-autoscaling describe-scaling-policies --service-namespace dynamodb --resource-id "table/CfnTestPrices"
+aws dynamodb describe-table --table-name CfnTestPrices --region us-east-1
+aws application-autoscaling describe-scalable-targets --service-namespace dynamodb --resource-id "table/CfnTestPrices" --region us-east-1
+aws application-autoscaling describe-scaling-policies --service-namespace dynamodb --resource-id "table/CfnTestPrices" --region us-east-1
 ```
 
 ### STEP 3: Unmanage table and auto-scaling resources from CloudFormation
@@ -261,7 +261,7 @@ As you review the change set, `unmanage-resources`, in AWS console, you see:
 Using AWS CLI, run the following command to review this change set:
 
 ```
-aws cloudformation describe-change-set --change-set-name <"Id" from the output of 'create-change-set' command that you run earlier>
+aws cloudformation describe-change-set --region us-east-1 --change-set-name <"Id" from the output of 'create-change-set' command that you run earlier>
 ```
 
 #### Execute the CloudFormation change set
@@ -269,7 +269,7 @@ aws cloudformation describe-change-set --change-set-name <"Id" from the output o
 Execute the change set using AWS console or run the following command:
 
 ```
-aws cloudformation execute-change-set --change-set-name <"Id" from the output of 'create-change-set' command that you run earlier>
+aws cloudformation execute-change-set --region us-east-1 --change-set-name <"Id" from the output of 'create-change-set' command that you run earlier>
 ```
 
 ![unmanage-resources change set executed](images/unmanage-resources-execute-complete-step3.png)
@@ -288,16 +288,16 @@ As you see in **Resources** tab, the table and related auto-scaling resources ar
 Using the AWS CLI, check the stack status by running the following command:
 
 ```
-aws cloudformation describe-stack-events --stack-name cfn-demo-dynamodb --max-items 1
+aws cloudformation describe-stack-events --region us-east-1 --stack-name cfn-demo-dynamodb --max-items 1
 ```
 
 Run the following commands to review the table and related auto-scaling resources.
 You will see that these resources were not deleted by executing the change set. They are just not managed by CloudFormation any longer.
 
 ```
-aws dynamodb describe-table --table-name CfnTestPrices
-aws application-autoscaling describe-scalable-targets --service-namespace dynamodb --resource-id "table/CfnTestPrices"
-aws application-autoscaling describe-scaling-policies --service-namespace dynamodb --resource-id "table/CfnTestPrices"
+aws dynamodb describe-table --table-name CfnTestPrices --region us-east-1
+aws application-autoscaling describe-scalable-targets --service-namespace dynamodb --resource-id "table/CfnTestPrices" --region us-east-1
+aws application-autoscaling describe-scaling-policies --service-namespace dynamodb --resource-id "table/CfnTestPrices" --region us-east-1
 ```
 
 ### STEP 4: Import the existing unmanaged DynamoDB table to the stack as an AWS::DynamoDB::GlobalTable
@@ -375,7 +375,7 @@ As you review the change set, `ImportChangeSet`, in AWS console, you see:
 Using AWS CLI, run the following command to review this change set:
 
 ```
-aws cloudformation describe-change-set --change-set-name <"Id" from the output of 'create-change-set' command that you run earlier>
+aws cloudformation describe-change-set --region us-east-1 --change-set-name <"Id" from the output of 'create-change-set' command that you run earlier>
 ```
 
 #### Execute the CloudFormation change set
@@ -383,7 +383,7 @@ aws cloudformation describe-change-set --change-set-name <"Id" from the output o
 Execute the change set using AWS console or run the following command:
 
 ```
-aws cloudformation execute-change-set --change-set-name <"Id" from the output of 'create-change-set' command that you run earlier>
+aws cloudformation execute-change-set --region us-east-1 --change-set-name <"Id" from the output of 'create-change-set' command that you run earlier>
 ```
 
 In AWS console, you should see a similar execution status:
@@ -394,7 +394,7 @@ Using AWS CLI, run the following command to check the stack.
 You should see `"ResourceStatus": "IMPORT_COMPLETE"` in the output.
 
 ```
-aws cloudformation describe-stack-events --stack-name cfn-demo-dynamodb --max-items 1
+aws cloudformation describe-stack-events --region us-east-1 --stack-name cfn-demo-dynamodb --max-items 1
 ```
 
 #### Review the resources
@@ -408,9 +408,9 @@ Similar to the previous steps, using AWS CLI,
 you can run the following commands to check the table and related auto-scaling resources:
 
 ```
-aws dynamodb describe-table --table-name CfnTestPrices
-aws application-autoscaling describe-scalable-targets --service-namespace dynamodb --resource-id "table/CfnTestPrices"
-aws application-autoscaling describe-scaling-policies --service-namespace dynamodb --resource-id "table/CfnTestPrices"
+aws dynamodb describe-table --table-name CfnTestPrices --region us-east-1
+aws application-autoscaling describe-scalable-targets --service-namespace dynamodb --resource-id "table/CfnTestPrices" --region us-east-1
+aws application-autoscaling describe-scaling-policies --service-namespace dynamodb --resource-id "table/CfnTestPrices" --region us-east-1
 ```
 
 ### STEP 5: Create a replica in another AWS Region
@@ -449,7 +449,7 @@ As you review the change set, `add-replica`, in AWS console, you see:
 Using AWS CLI, run the following command to review this change set:
 
 ```
-aws cloudformation describe-change-set --change-set-name <"Id" from the output of 'create-change-set' command that you run earlier>
+aws cloudformation describe-change-set --region us-east-1 --change-set-name <"Id" from the output of 'create-change-set' command that you run earlier>
 ```
 
 #### Execute the CloudFormation change set
@@ -457,7 +457,7 @@ aws cloudformation describe-change-set --change-set-name <"Id" from the output o
 Execute the change set using AWS console or run the following command. 
 
 ```
-aws cloudformation execute-change-set --change-set-name <"Id" from the output of 'create-change-set' command that you run earlier>
+aws cloudformation execute-change-set --region us-east-1 --change-set-name <"Id" from the output of 'create-change-set' command that you run earlier>
 ```
 
 Adding a replica to `CfnTestPrices` table may take several minutes.
@@ -473,7 +473,7 @@ Using AWS CLI, run the following command to check the stack.
 You should see `"ResourceStatus": "UPDATE_COMPLETE"` in the output.
 
 ```
-aws cloudformation describe-stack-events --stack-name cfn-demo-dynamodb --max-items 1
+aws cloudformation describe-stack-events --region us-east-1 --stack-name cfn-demo-dynamodb --max-items 1
 ```
 
 #### Review the resources
@@ -531,7 +531,7 @@ As you review the change set, `change-scaling`, in AWS console, you see:
 Using AWS CLI, run the following command to review this change set:
 
 ```
-aws cloudformation describe-change-set --change-set-name <"Id" from the output of 'create-change-set' command that you run earlier>
+aws cloudformation describe-change-set --region us-east-1 --change-set-name <"Id" from the output of 'create-change-set' command that you run earlier>
 ```
 
 #### Execute the CloudFormation change set
@@ -539,7 +539,7 @@ aws cloudformation describe-change-set --change-set-name <"Id" from the output o
 Execute the change set using AWS console or run the following command.
 
 ```
-aws cloudformation execute-change-set --change-set-name <"Id" from the output of 'create-change-set' command that you run earlier>
+aws cloudformation execute-change-set --region us-east-1 --change-set-name <"Id" from the output of 'create-change-set' command that you run earlier>
 ```
 
 When the execution of the change set is complete, you should see:
@@ -550,7 +550,7 @@ Using the AWS CLI, run the following command to check the stack.
 You should see `"ResourceStatus": "UPDATE_COMPLETE"` in the output.
 
 ```
-aws cloudformation describe-stack-events --stack-name cfn-demo-dynamodb --max-items 1
+aws cloudformation describe-stack-events --region us-east-1 --stack-name cfn-demo-dynamodb --max-items 1
 ```
 
 #### Review the resources
@@ -592,6 +592,8 @@ When using the script for your own account and table, you may want to update the
 ### OPTIONS
 TABLE_NAME='CfnTestPrices'
 STACK_NAME='cfn-demo-dynamodb'
+PRIMARY_REGION='us-east-1'
+REPLICA_REGION='us-east-2'
 DEFAULT_STEP=1
 ```
 
@@ -637,7 +639,7 @@ aws cloudformation deploy \
 
 ```
 ## deletes table and stack
-aws cloudformation delete-stack --stack-name cfn-demo-dynamodb
+aws cloudformation delete-stack --region us-east-1 --stack-name cfn-demo-dynamodb
 ```
 
 Another option is to run the following command if you configured your stack and database name in the script:

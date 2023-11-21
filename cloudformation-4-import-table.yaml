@@ -6,6 +6,7 @@
 ## IMPORT DynamoDB table as a global table
 ## WITH write and read scaling properties to the global table object
 ## DeletionProtection moved to replicas section
+## Adding Variables for Primary and Replica Region
 
 
 AWSTemplateFormatVersion: "2010-09-09"
@@ -14,6 +15,14 @@ Parameters:
     Type: String
     Default: CfnTestPrices
     Description: Should be the table name to test
+  PrimaryRegion: 
+    Type: String
+    Default: us-east-1
+    Description: Region Primary Table is located
+  ReplicaRegion: 
+    Type: String
+    Default: us-east-2
+    Description: Region replica is located
 Resources:
   MyEmptyResource:
     Type: AWS::CloudFormation::WaitConditionHandle
@@ -46,7 +55,7 @@ Resources:
             DisableScaleIn: false
       Replicas:
        - 
-        Region: us-east-1
+        Region: !Ref PrimaryRegion
         DeletionProtectionEnabled: true
         ReadProvisionedThroughputSettings:
           ReadCapacityAutoScalingSettings:

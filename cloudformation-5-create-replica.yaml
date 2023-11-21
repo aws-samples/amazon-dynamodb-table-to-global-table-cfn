@@ -3,7 +3,8 @@
 ## This step creates a replica in us-east-2 with the inital same read values.
 ## This step can take a while while replicating data to the other region.
 ## Changes:
-## ADD an additional replica in us-east-2
+## ADD an additional replica in ReplicaRegion
+## ADD Parameter for ReplicaRegion
 
 
 AWSTemplateFormatVersion: "2010-09-09"
@@ -12,6 +13,14 @@ Parameters:
     Type: String
     Default: CfnTestPrices
     Description: Should be the table name to test
+  PrimaryRegion: 
+    Type: String
+    Default: us-east-1
+    Description: Region Primary Table is located
+  ReplicaRegion: 
+    Type: String
+    Default: us-east-2
+    Description: Region replica is located
 Resources:
   CfnTestPrices:
     Type: AWS::DynamoDB::GlobalTable
@@ -43,7 +52,7 @@ Resources:
             DisableScaleIn: false
       Replicas:
        - 
-        Region: us-east-1
+        Region: !Ref PrimaryRegion
         DeletionProtectionEnabled: true
         ReadProvisionedThroughputSettings:
           ReadCapacityAutoScalingSettings:
@@ -55,7 +64,7 @@ Resources:
               TargetValue: 70.0
               DisableScaleIn: false
        - 
-        Region: us-east-2
+        Region: !Ref ReplicaRegion
         DeletionProtectionEnabled: true
         ReadProvisionedThroughputSettings:
           ReadCapacityAutoScalingSettings:

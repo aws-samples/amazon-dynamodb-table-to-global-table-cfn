@@ -9,6 +9,14 @@ Parameters:
     Type: String
     Default: CfnTestPrices
     Description: Should be the table name to test
+  PrimaryRegion: 
+    Type: String
+    Default: us-east-1
+    Description: Region Primary Table is located
+  ReplicaRegion: 
+    Type: String
+    Default: us-east-2
+    Description: Region replica is locate
 Resources:
   CfnTestPrices:
     Type: AWS::DynamoDB::GlobalTable
@@ -38,7 +46,7 @@ Resources:
             DisableScaleIn: false
       Replicas:
        - 
-        Region: us-east-1
+        Region: !Ref PrimaryRegion
         DeletionProtectionEnabled: true
         ReadProvisionedThroughputSettings:
           ReadCapacityAutoScalingSettings:
@@ -50,7 +58,7 @@ Resources:
               TargetValue: 72.0
               DisableScaleIn: false
        - 
-        Region: us-east-2
+        Region: !Ref ReplicaRegion
         DeletionProtectionEnabled: false
         ReadProvisionedThroughputSettings:
           ReadCapacityAutoScalingSettings:

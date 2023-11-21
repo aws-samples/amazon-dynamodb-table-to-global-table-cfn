@@ -6,8 +6,10 @@
 ## Example ./cfn-execution 1
 
 ### OPTIONS
-TABLE_NAME='CfnTestPrices'
-STACK_NAME='cfn-demo-dynamodb'
+TABLE_NAME='CfnTestPricesrev'
+STACK_NAME='cfn-demo-dynamodbrev'
+PRIMARY_REGION='us-east-2'
+REPLICA_REGION='us-east-1'
 DEFAULT_STEP=1
 
 
@@ -25,18 +27,19 @@ echo " "
 check_execution_status() {
   echo " "
   STACK_NAME=$1
-  STEP=$2
+  REGION=$2
+  STEP=$3
   if [ $STEP == 4 ];then
     EXPECTED_RESULT="IMPORT_COMPLETE"
   else
     EXPECTED_RESULT="UPDATE_COMPLETE"
   fi
   echo -n "Wating for execution to complete."
-  CFN_STATUS_CMD=$(aws cloudformation describe-stack-events --stack-name $STACK_NAME --max-items 1 --query 'StackEvents[0].ResourceStatus' --output text | head -n 1)
+  CFN_STATUS_CMD=$(aws cloudformation describe-stack-events --stack-name $STACK_NAME --region $REGION --max-items 1 --query 'StackEvents[0].ResourceStatus' --output text | head -n 1)
   while [ "$CFN_STATUS_CMD" != "$EXPECTED_RESULT" ]; do
     echo -n '.'
     sleep 2
-    CFN_STATUS_CMD=$(aws cloudformation describe-stack-events --stack-name $STACK_NAME --max-items 1 --query 'StackEvents[0].ResourceStatus' --output text | head -n 1)
+    CFN_STATUS_CMD=$(aws cloudformation describe-stack-events --stack-name $STACK_NAME --region $REGION --max-items 1 --query 'StackEvents[0].ResourceStatus' --output text | head -n 1)
   done
   echo " "
 }
@@ -46,7 +49,7 @@ get_item_count() {
   TABLE_NAME=$1
   REGION=$2
 
-  aws dynamodb describe-table --table-name $TABLE_NAME
+  aws dynamodb describe-table --table-name $TABLE_NAME --region $REGION
   aws application-autoscaling describe-scalable-targets --service-namespace dynamodb --resource-id "table/$TABLE_NAME" --region $REGION
   aws application-autoscaling describe-scaling-policies --service-namespace dynamodb --resource-id "table/$TABLE_NAME" --region $REGION
 
@@ -59,15 +62,16 @@ get_item_count() {
 execute_change_set(){
   CHANGE_ARN=$1
   STACK_NAME=$2
-  STEP=$3
+  REGION=$3
+  STEP=$4
   sleep 5
   echo "STEP $STEP Starting ChangeSet Execution"
   echo "Change ARN: $CHANGE_ARN"
   ## USE TO DESCIBE CHANGES FOR AUDITING
   #aws cloudformation describe-change-set --change-set-name $CHANGE_ARN
-  aws cloudformation execute-change-set --change-set-name $CHANGE_ARN
+  aws cloudformation execute-change-set --change-set-name $CHANGE_ARN --region $REGION
   sleep 2
-  check_execution_status "$STACK_NAME" "$STEP"
+  check_execution_status "$STACK_NAME" "$REGION" "$STEP"
 }
 
 get_scaling_settings(){
@@ -76,7 +80,7 @@ get_scaling_settings(){
   WHEN=$3
   echo "$WHEN: Autoscaling Settings for $REGION:"
   ## THIS WON'T SHOW UNTIL AFTER THE REPLICA STEP
-  aws dynamodb describe-table-replica-auto-scaling --table-name $TABLE_NAME
+  aws dynamodb describe-table-replica-auto-scaling --table-name $TABLE_NAME --region $REGION
 }
 
 if [ $# -eq 0 ];then
@@ -93,7 +97,7 @@ if [ $EXE_STEP == 1 ];then
   aws cloudformation deploy \
     --template-file cloudformation-1-initial.yaml \
     --stack-name $STACK_NAME \
-    --region us-east-1 \
+    --region $PRIMARY_REGION \
     --capabilities CAPABILITY_NAMED_IAM \
     --parameter-overrides DBTableName=$TABLE_NAME
 fi
@@ -105,14 +109,14 @@ if [ $EXE_STEP == 2 ];then
     --template-body file://./cloudformation-2-deletionPolicy.yaml \
     --stack-name $STACK_NAME \
     --capabilities CAPABILITY_NAMED_IAM \
-    --region us-east-1 \
+    --region $PRIMARY_REGION \
     --change-set-name create-retain \
     --query 'Id' \
     --output text \
     --parameters ParameterKey=DBTableName,ParameterValue=$TABLE_NAME)
 
-  execute_change_set "$CHANGE_ARN" "$STACK_NAME" "2"
-  get_item_count "$TABLE_NAME" "us-east-1"
+  execute_change_set "$CHANGE_ARN" "$STACK_NAME" "$PRIMARY_REGION" "2"
+  get_item_count "$TABLE_NAME" "$PRIMARY_REGION"
 fi
 
 ### STEP 3 : Unmanage Table
@@ -122,14 +126,14 @@ if [ $EXE_STEP == 3 ];then
     --template-body file://./cloudformation-3-unmanage.yaml \
     --stack-name $STACK_NAME \
     --capabilities CAPABILITY_NAMED_IAM \
-    --region us-east-1 \
+    --region $PRIMARY_REGION \
     --change-set-name unmanage-resources \
     --query 'Id' \
     --output text \
     --parameters ParameterKey=DBTableName,ParameterValue=$TABLE_NAME)
 
-  execute_change_set "$CHANGE_ARN" "$STACK_NAME" "3"
-  get_item_count "$TABLE_NAME" "us-east-1"
+  execute_change_set "$CHANGE_ARN" "$STACK_NAME" "$PRIMARY_REGION" "3"
+  get_item_count "$TABLE_NAME" "$PRIMARY_REGION"
 fi
 
 ### STEP 4: Import Table as GlobalTable Resource 
@@ -140,8 +144,8 @@ if [ $EXE_STEP == 4 ];then
     --stack-name $STACK_NAME \
     --change-set-name ImportChangeSet \
     --change-set-type IMPORT \
-    --region us-east-1 \
-    --parameters ParameterKey=DBTableName,ParameterValue=$TABLE_NAME \
+    --region $PRIMARY_REGION \
+    --parameters ParameterKey=DBTableName,ParameterValue=$TABLE_NAME ParameterKey=PrimaryRegion,ParameterValue=$PRIMARY_REGION ParameterKey=ReplicaRegion,ParameterValue=$REPLICA_REGION \
     --resources-to-import "[ \
       {\"ResourceType\":\"AWS::DynamoDB::GlobalTable\",\"LogicalResourceId\":\"CfnTestPrices\", \"ResourceIdentifier\":{\"TableName\":\"$TABLE_NAME\"}}
       ]" \
@@ -149,58 +153,58 @@ if [ $EXE_STEP == 4 ];then
     --query 'Id' \
     --output text)
 
-  execute_change_set "$CHANGE_ARN" "$STACK_NAME" "4"
-  get_item_count "$TABLE_NAME" "us-east-1"
+  execute_change_set "$CHANGE_ARN" "$STACK_NAME" "$PRIMARY_REGION" "4"
+  get_item_count "$TABLE_NAME" "$PRIMARY_REGION"
 fi
 
-### STEP 5: Create Replica in us-east-2
+### STEP 5: Create Replica in REPLICA_REGION
 if [ $EXE_STEP == 5 ];then
-  echo "STEP 6: Create Replica in another region"
+  echo "STEP 5: Create Replica in another region"
   CHANGE_ARN=$(aws cloudformation create-change-set \
     --template-body file://./cloudformation-5-create-replica.yaml \
     --stack-name $STACK_NAME \
     --capabilities CAPABILITY_NAMED_IAM \
-    --region us-east-1 \
+    --region $PRIMARY_REGION \
     --change-set-name create-replica \
     --query 'Id' \
     --output text \
-    --parameters ParameterKey=DBTableName,ParameterValue=$TABLE_NAME)
+    --parameters ParameterKey=DBTableName,ParameterValue=$TABLE_NAME ParameterKey=PrimaryRegion,ParameterValue=$PRIMARY_REGION ParameterKey=ReplicaRegion,ParameterValue=$REPLICA_REGION)
 
 
   echo "NOTICE - This step can take up to 30 minutes depending on the table size."
   echo " "
-  execute_change_set "$CHANGE_ARN" "$STACK_NAME" "5"
+  execute_change_set "$CHANGE_ARN" "$STACK_NAME" "$PRIMARY_REGION" "5"
 
-  get_item_count "$TABLE_NAME" "us-east-1"
-  get_item_count "$TABLE_NAME" "us-east-2"
+  get_item_count "$TABLE_NAME" "$PRIMARY_REGION"
+  get_item_count "$TABLE_NAME" "$REPLICA_REGION"
 
-  get_scaling_settings "us-east-1" "$TABLE_NAME" "AFTER"
-  get_scaling_settings "us-east-2" "$TABLE_NAME" "AFTER"
+  get_scaling_settings "$PRIMARY_REGION" "$TABLE_NAME" "AFTER"
+  get_scaling_settings "$REPLICA_REGION" "$TABLE_NAME" "AFTER"
 fi
 
-### STEP 7: Final Validation
+### STEP 6: Final Validation
 if [ $EXE_STEP == 6 ];then
-  echo "STEP 7: Change all scaling values in both regions"
+  echo "STEP 6: Change all scaling values in both regions"
   CHANGE_ARN=$(aws cloudformation create-change-set \
     --template-body file://./cloudformation-6-test-scaling.yaml \
     --stack-name $STACK_NAME \
     --capabilities CAPABILITY_NAMED_IAM \
-    --region us-east-1 \
+    --region $PRIMARY_REGION \
     --change-set-name final-scaling-test \
     --query 'Id' \
     --output text \
-    --parameters ParameterKey=DBTableName,ParameterValue=$TABLE_NAME)
+    --parameters ParameterKey=DBTableName,ParameterValue=$TABLE_NAME ParameterKey=PrimaryRegion,ParameterValue=$PRIMARY_REGION ParameterKey=ReplicaRegion,ParameterValue=$REPLICA_REGION)
 
-  get_scaling_settings "us-east-1" "$TABLE_NAME" "BEFORE"
-  get_scaling_settings "us-east-2" "$TABLE_NAME" "BEFORE"
+  get_scaling_settings "$PRIMARY_REGION" "$TABLE_NAME" "BEFORE"
+  get_scaling_settings "$REPLICA_REGION" "$TABLE_NAME" "BEFORE"
 
-  execute_change_set "$CHANGE_ARN" "$STACK_NAME" "6"
+  execute_change_set "$CHANGE_ARN" "$STACK_NAME" "$PRIMARY_REGION" "6"
 
-  get_scaling_settings "us-east-1" "$TABLE_NAME" "AFTER"
-  get_scaling_settings "us-east-2" "$TABLE_NAME" "AFTER"
+  get_scaling_settings "$PRIMARY_REGION" "$TABLE_NAME" "AFTER"
+  get_scaling_settings "$REPLICA_REGION" "$TABLE_NAME" "AFTER"
   
-  get_item_count "$TABLE_NAME" "us-east-1"
-  get_item_count "$TABLE_NAME" "us-east-2"
+  get_item_count "$TABLE_NAME" "$PRIMARY_REGION"
+  get_item_count "$TABLE_NAME" "$REPLICA_REGION"
 fi
 
 ## DELETE
@@ -209,9 +213,9 @@ if [ $EXE_STEP == 86 ];then
   aws cloudformation deploy \
     --template-file cloudformation-7-remove.yaml \
     --stack-name $STACK_NAME \
-    --region us-east-1 \
+    --region $PRIMARY_REGION \
     --capabilities CAPABILITY_NAMED_IAM \
-    --parameter-overrides DBTableName=$TABLE_NAME
+    --parameter-overrides DBTableName=$TABLE_NAME ParameterKey=PrimaryRegion,ParameterValue=$PRIMARY_REGION ParameterKey=ReplicaRegion,ParameterValue=$REPLICA_REGION
 
   ### WAITING 
   sleep 5
@@ -220,15 +224,15 @@ if [ $EXE_STEP == 86 ];then
   aws cloudformation deploy \
     --template-file cloudformation-8-remove.yaml \
     --stack-name $STACK_NAME \
-    --region us-east-1 \
+    --region $PRIMARY_REGION \
     --capabilities CAPABILITY_NAMED_IAM \
-    --parameter-overrides DBTableName=$TABLE_NAME
+    --parameter-overrides DBTableName=$TABLE_NAME ParameterKey=PrimaryRegion,ParameterValue=$PRIMARY_REGION ParameterKey=ReplicaRegion,ParameterValue=$REPLICA_REGION
 
   ### WAITING
   sleep 5
 
   echo "Deleting Stack $STACK_NAME with $TABLE_NAME..."
-  aws cloudformation delete-stack --stack-name $STACK_NAME
+  aws cloudformation delete-stack --stack-name $STACK_NAME --region $PRIMARY_REGION
 fi
 
 echo "STEP $EXE_STEP COMPLETE"
