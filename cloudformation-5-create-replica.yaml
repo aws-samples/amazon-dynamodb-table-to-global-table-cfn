@@ -1,4 +1,4 @@
-## USAGE: ORDER (6)
+## USAGE: ORDER (5)
 ## Purpose:
 ## This step creates a replica in us-east-2 with the inital same read values.
 ## This step can take a while while replicating data to the other region.
