@@ -6,8 +6,8 @@
 ## Example ./cfn-execution 1
 
 ### OPTIONS
-TABLE_NAME='CfnTestPricesrev'
-STACK_NAME='cfn-demo-dynamodbrev'
+TABLE_NAME='CfnTestPrices'
+STACK_NAME='cfn-demo-dynamodb'
 PRIMARY_REGION='us-east-2'
 REPLICA_REGION='us-east-1'
 DEFAULT_STEP=1
